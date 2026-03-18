@@ -1,0 +1,23 @@
+# LoveStock 项目专用规则
+
+## 项目结构
+- 前端代码在 frontend/，部署到 Vercel
+- 后端代码在 backend/，部署到 Railway（与 MySQL 同 project）
+- bot 代码在 bot/，可选
+
+## 前端规范
+- 不得硬编码 API 地址，统一从 frontend/config.js 的 CONFIG.API_BASE_URL 读取
+- 所有 API 请求走统一的 apiCall 函数，不得裸 fetch
+- initData 存内存，不存 localStorage
+
+## 后端规范
+- 数据库用 LONGTEXT 存 JSON，不用 JSON 类型列
+- 存取统一走 JSON.stringify / JSON.parse
+- 所有数据库连接必须在 finally 里 release()
+- initData 验证必须在后端做，开发环境可跳过但生产环境必须开启
+
+## 参考文档
+- PRD: docs/LoveStock PRD v0.1.txt
+- Tech Design: docs/tech-design.md
+- 通用规则: docs/CLAUDE.md
+```
