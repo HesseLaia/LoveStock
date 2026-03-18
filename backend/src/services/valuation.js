@@ -1,7 +1,8 @@
 import { generateChartData } from './chart.js';
 
 export const SCORE_MAP = {
-  q1: [20, 10, -5, -15],
+  // 前5题总分范围要求：最低 -50，最高 +75
+  q1: [15, 10, -5, -15],
   q2: [15, 5, -5, -10],
   q3: [10, 15, 0, -5],
   q4: [-10, 10, 5, -5],
@@ -86,7 +87,8 @@ export function calculateChangePercent(answers) {
   const minChange = -20.0;
   const maxChange = 99.9;
   const normalized = (aggressiveScore + 50) / 125;
-  const changePercent = minChange + normalized * (maxChange - minChange);
+  let changePercent = minChange + normalized * (maxChange - minChange);
+  changePercent = Math.max(-20.0, Math.min(99.9, changePercent));
 
   return Number(changePercent.toFixed(1));
 }
