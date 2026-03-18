@@ -2,6 +2,10 @@ import 'dotenv/config';
 
 import cors from 'cors';
 import express from 'express';
+import { authMiddleware } from './src/services/validator.js';
+import { generateComment } from './src/services/openrouter.js';
+import { calculateValuation } from './src/services/valuation.js';
+import { getUserResult, saveUserResult } from './src/models/user.js';
 
 const requiredEnvVars = [
   'DB_HOST',
@@ -46,6 +50,85 @@ app.use(express.json());
 
 app.get('/health', (req, res) => {
   res.json({ status: 'ok' });
+});
+
+app.get('/api/init', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.telegramUser.id;
+    const existingResult = await getUserResult(userId);
+
+    res.json({
+      success: true,
+      data: {
+        user_id: userId,
+        username: req.telegramUser.username || null,
+        first_name: req.telegramUser.first_name || null,
+        has_result: !!existingResult,
+        result: existingResult || undefined
+      }
+    });
+  } catch (error) {
+    console.error('Init error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'DB_ERROR',
+      message: 'Failed to initialize'
+    });
+  }
+});
+
+app.post('/api/valuation', authMiddleware, async (req, res) => {
+  try {
+    const { answers } = req.body ?? {};
+
+    if (!Array.isArray(answers) || answers.length !== 8) {
+      return res.status(400).json({
+        success: false,
+        error: 'INVALID_ANSWERS',
+        message: 'Answers must be an array of 8 valid options (A/B/C/D)'
+      });
+    }
+
+    const validOptions = new Set(['A', 'B', 'C', 'D']);
+    if (!answers.every((a) => validOptions.has(a))) {
+      return res.status(400).json({
+        success: false,
+        error: 'INVALID_ANSWERS',
+        message: 'Answers must be an array of 8 valid options (A/B/C/D)'
+      });
+    }
+
+    const userId = req.telegramUser.id;
+    const usernameForTicker =
+      req.telegramUser.username || req.telegramUser.first_name || 'USER';
+
+    const valuation = calculateValuation(answers, usernameForTicker);
+    const aiComment = await generateComment(
+      valuation.stock_type,
+      valuation.final_price,
+      valuation.grade,
+      valuation.special_tag
+    );
+    valuation.ai_comment = aiComment;
+
+    await saveUserResult(userId, req.telegramUser, valuation, answers);
+
+    res.json({
+      success: true,
+      data: {
+        user_id: userId,
+        username: req.telegramUser.username || null,
+        ...valuation
+      }
+    });
+  } catch (error) {
+    console.error('Valuation error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'INTERNAL_ERROR',
+      message: 'Failed to calculate valuation'
+    });
+  }
 });
 
 const port = Number(process.env.PORT || 3000);
