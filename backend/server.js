@@ -2,6 +2,7 @@ import 'dotenv/config';
 
 import cors from 'cors';
 import express from 'express';
+import rateLimit from 'express-rate-limit';
 import { authMiddleware } from './src/services/validator.js';
 import { generateComment } from './src/services/openrouter.js';
 import { calculateValuation } from './src/services/valuation.js';
@@ -49,6 +50,20 @@ app.use(
 
 app.use(express.json({ limit: '100kb' }));
 
+const valuationRateLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler(req, res) {
+    res.status(429).json({
+      success: false,
+      error: 'RATE_LIMITED',
+      message: 'Too many requests, please try again later.'
+    });
+  }
+});
+
 app.get('/health', (req, res) => {
   res.json({ status: 'ok' });
 });
@@ -78,7 +93,7 @@ app.get('/api/init', authMiddleware, async (req, res) => {
   }
 });
 
-app.post('/api/valuation', authMiddleware, async (req, res) => {
+app.post('/api/valuation', valuationRateLimiter, authMiddleware, async (req, res) => {
   try {
     const { answers } = req.body ?? {};
 
