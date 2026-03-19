@@ -19,5 +19,13 @@
 ## 参考文档
 - PRD: docs/LoveStock PRD v0.1.txt
 - Tech Design: docs/tech-design.md
-- 通用规则: docs/CLAUDE.md
+- 通用规则: CLAUDE.md
+
+## Mini App 架构规范
+- 前端在 frontend/，部署到 Netlify
+- 后端在 backend/，部署到 Railway（与 MySQL 同 project）
+- Bot 在 bot/，部署到 Railway（与后端同 project）
+- 前端禁止硬编码 API 地址，统一从 frontend/config.js 读取
+- 后端所有 API 请求必须验证 X-Telegram-Init-Data
+- DOM 操作禁止 innerHTML 拼接后端数据
 ```
