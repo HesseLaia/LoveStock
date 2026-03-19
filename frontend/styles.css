@@ -1,5 +1,5 @@
 * {
-    font-family: 'Share Tech Mono', 'Courier New', monospace !important;
+    font-family: 'Courier New', 'Courier', monospace !important;
     box-sizing: border-box;
     margin: 0;
     padding: 0;
@@ -29,6 +29,17 @@ body {
     overflow: hidden;
     border: 1px solid #1e1635;
     box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+}
+
+/* 固定内容区域高度，避免不同页面切换时整体高度抖动 */
+#ls-page {
+    width: 100%;
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
 }
 
 .ls-glow {
@@ -136,7 +147,6 @@ body {
     color: #ffffff;
     font-size: 13px;
     letter-spacing: 2px;
-    font-family: "Share Tech Mono", monospace;
     cursor: pointer;
     transition: background 0.18s;
     outline: none;
@@ -162,6 +172,7 @@ body {
 .ls-prog-bar { flex: 1; height: 3px; background: #2a1f4a; border-radius: 2px; overflow: hidden; }
 .ls-prog-fill { height: 100%; background: #c8ff00; border-radius: 2px; transition: width 0.4s ease; }
 
+/* 固定卡片区域高度，防止题目文案长短导致布局跳动 */
 .ls-stack {
     position: relative;
     width: 100%;
@@ -169,6 +180,7 @@ body {
     margin-bottom: 26px;
     flex-shrink: 0;
 }
+
 .ls-card {
     position: absolute;
     top: 0;
@@ -181,6 +193,7 @@ body {
     overflow: hidden;
     box-sizing: border-box;
 }
+
 .ls-card-c { z-index: 1; transform: translateY(14px) scale(0.91); background: #16112a; border: 1px solid #2a1f4a; }
 .ls-card-b { z-index: 2; transform: translateY(8px) scale(0.96); background: #1a1330; border: 1px solid #32265e; }
 .ls-card-a { z-index: 3; transform: translateY(0) scale(1); background: #1e1635; border: 1px solid #3d2d6e; }
@@ -193,7 +206,17 @@ body {
 
 .ls-ticker { color: #4a3d6a; font-size: 10px; letter-spacing: 2px; margin-bottom: 14px; }
 .ls-q { color: #f0e8ff; font-size: 15px; line-height: 1.6; }
-.ls-opts { width: 100%; max-width: 340px; display: flex; flex-direction: column; gap: 8px; z-index: 10; }
+
+/* 固定选项区域高度，避免选项文案长短影响整体卡片高度 */
+.ls-opts {
+    width: 100%;
+    max-width: 340px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    z-index: 10;
+    min-height: 220px;  /* 4个选项的固定高度 */
+}
 
 .ls-opt {
     background: #1e1635;
@@ -202,7 +225,6 @@ body {
     padding: 12px 16px;
     color: #8b7aaa;
     font-size: 12px;
-    font-family: "Share Tech Mono", monospace;
     text-align: left;
     cursor: pointer;
     display: flex;
@@ -240,6 +262,7 @@ body {
 
 .ls-result { width: 100%; position: relative; z-index: 1; padding: 10px; }
 .ls-board { background: #16112a; border-radius: 16px; padding: 22px 20px 20px; border: 1px solid #2a1f4a; position: relative; overflow: hidden; }
+
 .ls-board-glow {
     position: absolute;
     width: 300px;
@@ -254,6 +277,7 @@ body {
 .ls-exhdr { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
 .ls-exname { color: #4a3d6a; font-size: 10px; letter-spacing: 3px; }
 .ls-live { background: #ff4466; color: #fff; font-size: 9px; padding: 2px 8px; border-radius: 3px; letter-spacing: 2px; animation: ls-blink 1.5s infinite; }
+
 @keyframes ls-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
 
 .ls-main-ticker { color: #f0e8ff; font-size: 32px; letter-spacing: 4px; margin-bottom: 3px; }
@@ -301,7 +325,6 @@ body {
     color: #fff;
     font-size: 12px;
     letter-spacing: 1px;
-    font-family: "Share Tech Mono", monospace;
     cursor: pointer;
     outline: none;
 }
