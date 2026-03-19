@@ -1,4 +1,13 @@
 (function () {
+    function escapeHtml(str) {
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
     const LoveStock = {
         config: CONFIG,
 
@@ -144,6 +153,7 @@
                     break;
                 case "result":
                     container.innerHTML = this.renderResultPage();
+                    this.populateResultPage();
                     this.bindResultEvents();
                     break;
                 default:
@@ -312,7 +322,13 @@
         },
 
         renderChart(data) {
-            const chartData = Array.isArray(data) && data.length ? data : [40, 30, 35, 20, 10, 8, 12, 7];
+            const fallback = [40, 30, 35, 20, 10, 8, 12, 7];
+            const source = Array.isArray(data) && data.length ? data : fallback;
+            const chartData = source.map((value) => {
+                const num = Number(value);
+                if (!Number.isFinite(num)) return 0;
+                return Math.max(0, Math.min(52, num));
+            });
             const step = 400 / (chartData.length - 1);
             const linePoints = chartData.map((y, i) => (i * step) + "," + y).join(" ");
             const polygonPoints = linePoints + " 400,52 0,52";
@@ -329,6 +345,110 @@
                 '<polyline points="' + linePoints + '" fill="none" stroke="#c8ff00" stroke-width="1.5" stroke-linejoin="round"/>' +
                 "</svg>"
             );
+        },
+
+        renderChartInto(container, data) {
+            if (!container) return;
+            container.innerHTML = "";
+
+            const fallback = [40, 30, 35, 20, 10, 8, 12, 7];
+            const source = Array.isArray(data) && data.length ? data : fallback;
+            const chartData = source.map((value) => {
+                const num = Number(value);
+                if (!Number.isFinite(num)) return 0;
+                return Math.max(0, Math.min(52, num));
+            });
+
+            const step = 400 / (chartData.length - 1);
+            const linePoints = chartData.map((y, i) => (i * step) + "," + y).join(" ");
+            const polygonPoints = linePoints + " 400,52 0,52";
+
+            const svgNS = "http://www.w3.org/2000/svg";
+            const svg = document.createElementNS(svgNS, "svg");
+            svg.setAttribute("width", "100%");
+            svg.setAttribute("height", "52");
+            svg.setAttribute("viewBox", "0 0 400 52");
+            svg.setAttribute("preserveAspectRatio", "none");
+
+            const defs = document.createElementNS(svgNS, "defs");
+            const gradient = document.createElementNS(svgNS, "linearGradient");
+            gradient.setAttribute("id", "cg");
+            gradient.setAttribute("x1", "0");
+            gradient.setAttribute("y1", "0");
+            gradient.setAttribute("x2", "0");
+            gradient.setAttribute("y2", "1");
+
+            const stopA = document.createElementNS(svgNS, "stop");
+            stopA.setAttribute("offset", "0%");
+            stopA.setAttribute("stop-color", "#c8ff00");
+            stopA.setAttribute("stop-opacity", "0.15");
+
+            const stopB = document.createElementNS(svgNS, "stop");
+            stopB.setAttribute("offset", "100%");
+            stopB.setAttribute("stop-color", "#c8ff00");
+            stopB.setAttribute("stop-opacity", "0");
+
+            gradient.appendChild(stopA);
+            gradient.appendChild(stopB);
+            defs.appendChild(gradient);
+            svg.appendChild(defs);
+
+            const polygon = document.createElementNS(svgNS, "polygon");
+            polygon.setAttribute("points", polygonPoints);
+            polygon.setAttribute("fill", "url(#cg)");
+
+            const polyline = document.createElementNS(svgNS, "polyline");
+            polyline.setAttribute("points", linePoints);
+            polyline.setAttribute("fill", "none");
+            polyline.setAttribute("stroke", "#c8ff00");
+            polyline.setAttribute("stroke-width", "1.5");
+            polyline.setAttribute("stroke-linejoin", "round");
+
+            svg.appendChild(polygon);
+            svg.appendChild(polyline);
+            container.appendChild(svg);
+        },
+
+        populateResultPage() {
+            const result = this.state.historyResult || {};
+            const price = typeof result.final_price === "number" ? result.final_price.toFixed(2) : "0.00";
+            const changeRaw = typeof result.change_percent === "number" ? result.change_percent : 0;
+            const change = Math.abs(changeRaw).toFixed(1);
+            const isUp = changeRaw >= 0;
+            const displayUsername =
+                result.username
+                    ? (String(result.username).startsWith("@") ? result.username : ("@" + result.username))
+                    : "@investor_puro";
+
+            const tickerEl = document.getElementById("ls-result-ticker");
+            const profileEl = document.getElementById("ls-result-profile");
+            const priceEl = document.getElementById("ls-result-price");
+            const changeEl = document.getElementById("ls-result-change");
+            const assetTypeEl = document.getElementById("ls-result-asset-type");
+            const gradeEl = document.getElementById("ls-result-grade");
+            const tagsEl = document.getElementById("ls-result-tags");
+            const verdictEl = document.getElementById("ls-result-verdict");
+            const chartEl = document.getElementById("ls-result-chart");
+
+            if (tickerEl) tickerEl.textContent = result.ticker || "$USER";
+            if (profileEl) profileEl.textContent = displayUsername + " - " + (result.stock_type || "Growth Stock");
+            if (priceEl) priceEl.textContent = "$" + price;
+            if (changeEl) changeEl.textContent = (isUp ? "▲ +" : "▼ -") + change + "%";
+            if (assetTypeEl) assetTypeEl.textContent = result.stock_type || "Growth Stock";
+            if (gradeEl) gradeEl.textContent = result.grade || "C-";
+            if (verdictEl) verdictEl.textContent = result.ai_comment || "Market trajectory remains uncertain but long-term fundamentals show promise";
+
+            if (tagsEl) {
+                tagsEl.innerHTML = "";
+                if (result.special_tag) {
+                    const tag = document.createElement("span");
+                    tag.className = "ls-tag ls-tag-a";
+                    tag.textContent = result.special_tag;
+                    tagsEl.appendChild(tag);
+                }
+            }
+
+            this.renderChartInto(chartEl, result.chart_data);
         },
 
         showError(message) {
@@ -406,17 +526,6 @@
         },
 
         renderResultPage() {
-            const result = this.state.historyResult || {};
-            const price = typeof result.final_price === "number" ? result.final_price.toFixed(2) : "0.00";
-            const changeRaw = typeof result.change_percent === "number" ? result.change_percent : 0;
-            const change = Math.abs(changeRaw).toFixed(1);
-            const isUp = changeRaw >= 0;
-            const tags = result.special_tag ? ('<span class="ls-tag ls-tag-a">' + result.special_tag + "</span>") : "";
-            const displayUsername =
-                result.username
-                    ? (String(result.username).startsWith("@") ? result.username : ("@" + result.username))
-                    : "@investor_puro";
-
             return (
                 '<div class="ls-result">' +
                 '<div class="ls-board">' +
@@ -425,21 +534,21 @@
                 '<span class="ls-exname">LOVESTOCK EXCHANGE - NYSE</span>' +
                 '<span class="ls-live">- LIVE</span>' +
                 "</div>" +
-                '<div class="ls-main-ticker">' + (result.ticker || "$USER") + "</div>" +
-                '<div class="ls-co-name">' + displayUsername + " - " + (result.stock_type || "Growth Stock") + "</div>" +
+                '<div class="ls-main-ticker" id="ls-result-ticker"></div>' +
+                '<div class="ls-co-name" id="ls-result-profile"></div>' +
                 '<div class="ls-price-row">' +
-                '<span class="ls-price">$' + price + "</span>" +
-                '<span class="ls-chg">' + (isUp ? "▲ +" : "▼ -") + change + "%</span>" +
+                '<span class="ls-price" id="ls-result-price"></span>' +
+                '<span class="ls-chg" id="ls-result-change"></span>' +
                 "</div>" +
                 '<hr class="ls-div">' +
                 '<div class="ls-sgrid">' +
-                '<div class="ls-sbox"><div class="ls-slbl">ASSET TYPE</div><div class="ls-sval purple">' + (result.stock_type || "Growth Stock") + "</div></div>" +
-                '<div class="ls-sbox"><div class="ls-slbl">GRADE</div><div class="ls-sval acid">' + (result.grade || "C-") + "</div></div>" +
+                '<div class="ls-sbox"><div class="ls-slbl">ASSET TYPE</div><div class="ls-sval purple" id="ls-result-asset-type"></div></div>' +
+                '<div class="ls-sbox"><div class="ls-slbl">GRADE</div><div class="ls-sval acid" id="ls-result-grade"></div></div>' +
                 '<div class="ls-sbox"><div class="ls-slbl">RISK LEVEL</div><div class="ls-sval red">MEDIUM</div></div>' +
                 "</div>" +
-                '<div class="ls-chart"><div class="ls-chart-lbl">30-DAY PRICE HISTORY</div>' + this.renderChart(result.chart_data) + "</div>" +
-                '<div class="ls-tags">' + tags + "</div>" +
-                '<div class="ls-verdict">"' + (result.ai_comment || "Market trajectory remains uncertain but long-term fundamentals show promise") + '"</div>' +
+                '<div class="ls-chart"><div class="ls-chart-lbl">30-DAY PRICE HISTORY</div><div id="ls-result-chart"></div></div>' +
+                '<div class="ls-tags" id="ls-result-tags"></div>' +
+                '<div class="ls-verdict" id="ls-result-verdict"></div>' +
                 '<button class="ls-cta" id="ls-retry-btn">RE-CALCULATE VALUATION</button>' +
                 "</div>" +
                 "</div>"

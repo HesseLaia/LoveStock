@@ -23,6 +23,15 @@ export async function getUserResult(userId) {
   if (!rows || rows.length === 0) return null;
 
   const row = rows[0];
+  let chartData = [];
+  if (row.chart_data) {
+    try {
+      chartData = JSON.parse(row.chart_data);
+    } catch {
+      console.error('chart_data parse error');
+      chartData = [];
+    }
+  }
   return {
     ticker: row.ticker,
     final_price: Number(row.final_price),
@@ -31,7 +40,7 @@ export async function getUserResult(userId) {
     grade: row.grade,
     special_tag: row.special_tag ?? null,
     ai_comment: row.ai_comment ?? null,
-    chart_data: row.chart_data ? JSON.parse(row.chart_data) : []
+    chart_data: chartData
   };
 }
 

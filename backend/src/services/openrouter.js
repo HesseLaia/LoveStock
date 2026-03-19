@@ -63,7 +63,10 @@ export async function generateComment(stockType, finalPrice, grade, specialTag) 
     const comment = data?.choices?.[0]?.message?.content?.trim();
     if (!comment) throw new Error('Empty response from OpenRouter');
 
-    return comment;
+    const words = comment.split(' ');
+    return words.length > 25
+      ? words.slice(0, 25).join(' ')
+      : comment;
   } catch (error) {
     clearTimeout(timeoutId);
 
