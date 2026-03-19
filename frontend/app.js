@@ -550,6 +550,11 @@
                 '<div class="ls-tags" id="ls-result-tags"></div>' +
                 '<div class="ls-verdict" id="ls-result-verdict"></div>' +
                 '<button class="ls-cta" id="ls-retry-btn">RE-CALCULATE VALUATION</button>' +
+                '<button type="button" ' +
+                'style="margin-top:12px;width:100%;background:transparent;border-radius:10px;padding:12px;border:1px solid #a855f7;color:#a855f7;font-size:11px;letter-spacing:1px;font-family:inherit;cursor:pointer;" ' +
+                'onclick="window.Telegram?.WebApp?.openTelegramLink && window.Telegram.WebApp.openTelegramLink(\'https://t.me/Blink_AImatch_Bot\')">' +
+                'Find your perfect match on Blink →' +
+                '</button>' +
                 "</div>" +
                 "</div>"
             );
