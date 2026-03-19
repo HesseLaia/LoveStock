@@ -30,6 +30,7 @@ const app = express();
 
 const allowedOrigins = [
   'https://lovestock.vercel.app',
+  'https://prismatic-puppy-8167f6.netlify.app',
   'http://localhost:5173',
   'http://127.0.0.1:5173'
 ];
