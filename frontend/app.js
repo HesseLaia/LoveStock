@@ -33,12 +33,11 @@
 
         init() {
             this.initTelegramSDK();
-            this.navigateTo("welcome");
-            this.bindEvents();
+            this.checkInit();
         },
 
         initTelegramSDK() {
-            const tg = window.Telegram && window.Telegram.WebApp;
+            const tg = window.Telegram?.WebApp;
             if (!tg) return;
 
             tg.ready();
@@ -46,6 +45,86 @@
             this.state.telegramUser = tg.initDataUnsafe && tg.initDataUnsafe.user ? tg.initDataUnsafe.user : null;
             if (typeof tg.setHeaderColor === "function") tg.setHeaderColor("#0a0813");
             if (typeof tg.setBackgroundColor === "function") tg.setBackgroundColor("#0e0b14");
+        },
+
+        getTelegramInitData() {
+            return window.Telegram?.WebApp?.initData || "";
+        },
+
+        async apiCall(path, options = {}, retryCount = 1) {
+            const headers = {
+                "X-Telegram-Init-Data": this.getTelegramInitData(),
+                ...(options.headers || {})
+            };
+
+            try {
+                const response = await fetch(this.config.API_BASE_URL + path, {
+                    ...options,
+                    headers
+                });
+
+                let payload = null;
+                try {
+                    payload = await response.json();
+                } catch (e) {
+                    payload = {
+                        success: false,
+                        error: "INVALID_RESPONSE",
+                        message: "Server returned invalid response"
+                    };
+                }
+
+                if (!response.ok) {
+                    const err = new Error(payload.message || "Request failed");
+                    err.status = response.status;
+                    err.payload = payload;
+                    throw err;
+                }
+
+                return payload;
+            } catch (error) {
+                const isNetworkError = error instanceof TypeError || error.message === "Failed to fetch";
+                if (isNetworkError && retryCount > 0) {
+                    return this.apiCall(path, options, retryCount - 1);
+                }
+                throw error;
+            }
+        },
+
+        async checkInit() {
+            // 本地浏览器无 Telegram 对象时，直接进入欢迎页，避免报错
+            if (!window.Telegram?.WebApp) {
+                this.navigateTo("welcome");
+                return;
+            }
+
+            try {
+                const json = await this.apiCall("/api/init", { method: "GET" });
+                if (!json.success) {
+                    this.showError("Authentication failed");
+                    return;
+                }
+
+                this.state.telegramUser = {
+                    id: json.data.user_id,
+                    username: json.data.username,
+                    first_name: json.data.first_name
+                };
+
+                if (json.data.has_result && json.data.result) {
+                    this.state.historyResult = json.data.result;
+                    this.navigateTo("result");
+                    return;
+                }
+
+                this.navigateTo("welcome");
+            } catch (error) {
+                if (error.status === 401) {
+                    this.showError("Authentication failed. Please open in Telegram.");
+                    return;
+                }
+                this.showError("Failed to connect to server");
+            }
         },
 
         navigateTo(page) {
@@ -173,13 +252,39 @@
         async submitAnswers() {
             this.navigateTo("loading");
             try {
-                await this.simulateLoading();
-                this.state.historyResult = this.generateMockResult();
+                const [json] = await Promise.all([
+                    this.callValuationAPI(),
+                    this.simulateLoading()
+                ]);
+
+                if (!json.success) {
+                    this.showError("Failed to calculate valuation");
+                    return;
+                }
+
+                this.state.historyResult = json.data;
                 this.navigateTo("result");
             } catch (error) {
-                console.error("Submit error:", error);
-                this.showError("Failed to calculate valuation");
+                if (error.status === 401) {
+                    this.showError("Authentication failed. Please reopen from Telegram.");
+                    return;
+                }
+                if (error.status === 400) {
+                    this.showError("Invalid answers. Please try again.");
+                    return;
+                }
+                this.showError("Network error. Please try again.");
             }
+        },
+
+        async callValuationAPI() {
+            return this.apiCall("/api/valuation", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({ answers: this.state.answers })
+            });
         },
 
         simulateLoading() {
@@ -204,24 +309,6 @@
                     }
                 }, 35);
             });
-        },
-
-        generateMockResult() {
-            const user = this.state.telegramUser || {};
-            const rawName = user.username || user.first_name || "USER";
-            const ticker = "$" + rawName.replace(/[^a-zA-Z]/g, "").toUpperCase().slice(0, 4 || undefined) || "$USER";
-
-            return {
-                ticker: ticker === "$" ? "$USER" : ticker,
-                username: user.username ? "@" + user.username : "@investor_puro",
-                stock_type: "Growth Stock",
-                final_price: 4721.38,
-                change_percent: 12.4,
-                grade: "A-",
-                special_tag: "RARE FIND",
-                ai_comment: "Emotionally available yet strategically elusive a combination so rare it should be illegal in 12 countries",
-                chart_data: [42, 38, 46, 32, 35, 18, 26, 13, 20, 28, 16, 10, 18, 6, 12, 20, 8, 15, 9, 17, 11, 5, 9, 3, 7, 2, 5, 4, 8, 5]
-            };
         },
 
         renderChart(data) {
@@ -321,8 +408,14 @@
         renderResultPage() {
             const result = this.state.historyResult || {};
             const price = typeof result.final_price === "number" ? result.final_price.toFixed(2) : "0.00";
-            const change = typeof result.change_percent === "number" ? result.change_percent.toFixed(1) : "0.0";
+            const changeRaw = typeof result.change_percent === "number" ? result.change_percent : 0;
+            const change = Math.abs(changeRaw).toFixed(1);
+            const isUp = changeRaw >= 0;
             const tags = result.special_tag ? ('<span class="ls-tag ls-tag-a">' + result.special_tag + "</span>") : "";
+            const displayUsername =
+                result.username
+                    ? (String(result.username).startsWith("@") ? result.username : ("@" + result.username))
+                    : "@investor_puro";
 
             return (
                 '<div class="ls-result">' +
@@ -333,10 +426,10 @@
                 '<span class="ls-live">- LIVE</span>' +
                 "</div>" +
                 '<div class="ls-main-ticker">' + (result.ticker || "$USER") + "</div>" +
-                '<div class="ls-co-name">' + (result.username || "@investor_puro") + " - " + (result.stock_type || "Growth Stock") + "</div>" +
+                '<div class="ls-co-name">' + displayUsername + " - " + (result.stock_type || "Growth Stock") + "</div>" +
                 '<div class="ls-price-row">' +
                 '<span class="ls-price">$' + price + "</span>" +
-                '<span class="ls-chg">▲ +' + change + "%</span>" +
+                '<span class="ls-chg">' + (isUp ? "▲ +" : "▼ -") + change + "%</span>" +
                 "</div>" +
                 '<hr class="ls-div">' +
                 '<div class="ls-sgrid">' +
